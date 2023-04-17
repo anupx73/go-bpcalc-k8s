@@ -85,6 +85,12 @@ func (app *application) insert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if m.Diastolic > m.Systolic {
+		app.infoLog.Printf("Diastolic value must be lower than systolic!!")
+		app.clientError(w, 416)
+		return
+	}
+
 	// bp category calc
 	if m.Systolic < 90 && m.Diastolic < 60 {
 		m.Category = "Low"

@@ -31,12 +31,12 @@ services:
     #     source: ./.tmp
     #     target: /backup
 
-  backend:
+  worker:
       build: .
       # image: ghcr.io/anupx73/go-bpcalc-k8s:latest
       command:
         - "-mongoURI"
         - "mongodb://db:27017/"
       labels:
-        - "traefik.http.routers.backend.rule=PathPrefix(`/api/bpcalc/`)"
-        - "traefik.http.services.backend.loadbalancer.server.port=4000"
+        - "traefik.http.routers.worker.rule=PathPrefix(`/api/bpcalc/`)"
+        - "traefik.http.services.worker.loadbalancer.server.port=4000"
