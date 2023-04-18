@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/anupx73/go-bpcalc-k8s/pkg/models"
+	"github.com/anupx73/go-bpcalc-backend-k8s/pkg/models"
 	"github.com/gorilla/mux"
 )
 

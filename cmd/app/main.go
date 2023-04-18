@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/anupx73/go-bpcalc-k8s/pkg/models/mongodb"
+	"github.com/anupx73/go-bpcalc-backend-k8s/pkg/models/mongodb"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )

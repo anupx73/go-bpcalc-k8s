@@ -1,4 +1,4 @@
-module github.com/anupx73/go-bpcalc-k8s
+module github.com/anupx73/go-bpcalc-backend-k8s
 
 go 1.19
 

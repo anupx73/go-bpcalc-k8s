@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/anupx73/go-bpcalc-k8s/pkg/models"
+	"github.com/anupx73/go-bpcalc-backend-k8s/pkg/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
