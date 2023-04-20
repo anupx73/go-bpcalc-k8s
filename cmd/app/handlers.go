@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/anupx73/go-bpcalc-backend-k8s/pkg/models"
@@ -72,33 +74,46 @@ func (app *application) insert(w http.ResponseWriter, r *http.Request) {
 	// Update reading time
 	m.ReadingTime = time.Now()
 
+	// Convert
+	systolic, err := strconv.Atoi(m.Systolic)
+	if err != nil {
+		fmt.Println("Error during Systolic value conversion")
+		return
+	}
+
+	diastolic, err := strconv.Atoi(m.Diastolic)
+	if err != nil {
+		fmt.Println("Error during Diastolic value conversion")
+		return
+	}
+
 	// bp reading validation
-	if m.Systolic < 70 || m.Systolic > 190 {
+	if systolic < 70 || systolic > 190 {
 		app.infoLog.Printf("Invalid systolic value for bp reading!!")
 		app.clientError(w, 416)
 		return
 	}
 
-	if m.Diastolic < 40 || m.Diastolic > 100 {
+	if diastolic < 40 || diastolic > 100 {
 		app.infoLog.Printf("Invalid diastolic value for bp reading!!")
 		app.clientError(w, 416)
 		return
 	}
 
-	if m.Diastolic > m.Systolic {
+	if diastolic > systolic {
 		app.infoLog.Printf("Diastolic value must be lower than systolic!!")
 		app.clientError(w, 416)
 		return
 	}
 
 	// bp category calc
-	if m.Systolic < 90 && m.Diastolic < 60 {
+	if systolic < 90 && diastolic < 60 {
 		m.Category = "Low"
-	} else if m.Systolic < 120 && m.Diastolic < 80 {
+	} else if systolic < 120 && diastolic < 80 {
 		m.Category = "Ideal"
-	} else if m.Systolic < 140 && m.Diastolic < 90 {
+	} else if systolic < 140 && diastolic < 90 {
 		m.Category = "Pre High"
-	} else if m.Systolic <= 190 && m.Diastolic <= 100 {
+	} else if systolic <= 190 && diastolic <= 100 {
 		m.Category = "High"
 	} else {
 		app.infoLog.Printf("Invalid systolic/diastolic value for bp reading!!")

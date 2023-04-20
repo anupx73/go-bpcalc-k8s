@@ -9,6 +9,19 @@ This backend service is powered by Go which provides some endpoints and interact
 
 The Go project template is sourced from: [mmorejon](https://github.com/mmorejon/microservices-docker-go-mongodb)
 
+## Go Module Publish
+
+To publish this module to be used by the frontend service use the followings:
+
+```
+go mod tidy
+
+git tag v0.1.0
+git push origin v0.1.0
+
+GOPROXY=proxy.golang.org go list -m github.com/anupx73/go-bpcalc-backend-k8s@v0.1.0
+```
+
 ## Endpoints
 
 | Service | Method | Endpoint       |
