@@ -16,16 +16,29 @@ jobs:
     steps:
       - name: Git code checkout
         uses: actions/checkout@v3
+        
+      - name: Setting up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.16.x'
+      
+      - name: Install dependencies
+        run: go get .
+      
+      - name: Compile
+        run: go build -v ./...
+      
+      - name: Unit Test
+        run: go test
 
-      - name: Set up SonarCloud cache
+      - name: SonarCloud Analysis
         uses: actions/cache@v2
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
-        
-      - name: SonarCloud Analysis
-        uses: SonarSource/sonarcloud-github-action@master
+      
+      - uses: SonarSource/sonarcloud-github-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
