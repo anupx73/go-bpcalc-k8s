@@ -18,7 +18,7 @@ func (app *application) all(w http.ResponseWriter, r *http.Request) {
 		app.serverError(w, err)
 	}
 
-	// Convert movie list into json encoding
+	// Convert bpReadings list into json encoding
 	b, err := json.Marshal(bpReadings)
 	if err != nil {
 		app.serverError(w, err)
@@ -65,6 +65,9 @@ func (app *application) findByID(w http.ResponseWriter, r *http.Request) {
 func (app *application) insert(w http.ResponseWriter, r *http.Request) {
 	// Define movie model
 	var m models.BPReading
+
+	responseMsg := ""
+
 	// Get request information
 	err := json.NewDecoder(r.Body).Decode(&m)
 	if err != nil {
@@ -89,20 +92,23 @@ func (app *application) insert(w http.ResponseWriter, r *http.Request) {
 
 	// bp reading validation
 	if systolic < 70 || systolic > 190 {
-		app.infoLog.Printf("Invalid systolic value for bp reading!!")
-		app.clientError(w, 416)
+		responseMsg = "Invalid systolic value for bp reading!!"
+		app.infoLog.Printf(responseMsg)
+		app.clientResponse(w, 416, responseMsg)
 		return
 	}
 
 	if diastolic < 40 || diastolic > 100 {
-		app.infoLog.Printf("Invalid diastolic value for bp reading!!")
-		app.clientError(w, 416)
+		responseMsg = "Invalid diastolic value for bp reading!!"
+		app.infoLog.Printf(responseMsg)
+		app.clientResponse(w, 416, responseMsg)
 		return
 	}
 
 	if diastolic > systolic {
-		app.infoLog.Printf("Diastolic value must be lower than systolic!!")
-		app.clientError(w, 416)
+		responseMsg = "Diastolic value must be lower than systolic!!"
+		app.infoLog.Printf(responseMsg)
+		app.clientResponse(w, 416, responseMsg)
 		return
 	}
 
@@ -116,8 +122,9 @@ func (app *application) insert(w http.ResponseWriter, r *http.Request) {
 	} else if systolic <= 190 && diastolic <= 100 {
 		m.Category = "High"
 	} else {
-		app.infoLog.Printf("Invalid systolic/diastolic value for bp reading!!")
-		app.clientError(w, 416)
+		responseMsg = "Invalid systolic/diastolic value for bp reading!!"
+		app.infoLog.Printf(responseMsg)
+		app.clientResponse(w, 416, responseMsg)
 		return
 	}
 
@@ -126,6 +133,9 @@ func (app *application) insert(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.serverError(w, err)
 	}
+
+	// Send the response back to client
+	app.clientResponse(w, 202, m.Category)
 
 	app.infoLog.Printf("Patient record added, id=%s", insertResult.InsertedID)
 }

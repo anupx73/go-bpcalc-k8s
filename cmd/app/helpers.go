@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
+	"strconv"
 )
 
 func (app *application) serverError(w http.ResponseWriter, err error) {
@@ -13,6 +14,11 @@ func (app *application) serverError(w http.ResponseWriter, err error) {
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
 
-func (app *application) clientError(w http.ResponseWriter, status int) {
-	http.Error(w, http.StatusText(status), status)
+func (app *application) clientResponse(w http.ResponseWriter, status int, responseTxt string) {
+
+	data := `{"status":"` + strconv.Itoa(status) + `","message":"` + responseTxt + `"}`
+	jsData := []byte(data)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	w.Write(jsData)
 }
