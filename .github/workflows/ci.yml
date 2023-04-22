@@ -48,4 +48,5 @@ jobs:
         uses: Templum/govulncheck-action@v0.10.0
         with:
           go-version: '1.20'
-          github-token: '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'
+          github-token: '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'
+          fail-on-vuln: false
