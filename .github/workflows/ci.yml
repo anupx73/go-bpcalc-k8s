@@ -20,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.17'
+          go-version: '1.20'
           cache-dependency-path: subdir/go.sum
       
       - name: Compile
@@ -43,3 +43,8 @@ jobs:
       #     args:
       #       -Dsonar.projectKey=go-bp-calc-k8s
       #       -Dsonar.organization=hypheni
+
+      - name: Vulnerability Check
+        uses: Templum/govulncheck-action@v0.10.0
+        with:
+          go-version: '1.20'
