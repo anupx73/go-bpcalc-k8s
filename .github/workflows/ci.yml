@@ -1,0 +1,45 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ "feat/response" ]
+  workflow_dispatch:
+
+#env:
+  #SONAR_ORG: hypheni
+  #SONAR_PROJ: go-bp-calc-k8s
+  
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v3
+        
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.17'
+          cache-dependency-path: subdir/go.sum
+      
+      - name: Compile
+        run: go build -v ./...
+      
+      - name: Unit Test
+        run: go test -v ./...
+
+      # - name: SonarCloud Analysis
+      #   uses: actions/cache@v2
+      #   with:
+      #     path: ~/.sonar/cache
+      #     key: ${{ runner.os }}-sonar
+      #     restore-keys: ${{ runner.os }}-sonar
+      
+      # - uses: SonarSource/sonarcloud-github-action@master
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #   with:
+      #     args:
+      #       -Dsonar.projectKey=go-bp-calc-k8s
+      #       -Dsonar.organization=hypheni
