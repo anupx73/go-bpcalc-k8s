@@ -29,26 +29,25 @@ jobs:
       - name: Unit Test
         run: go test -v ./...
 
-      # - name: SonarCloud Analysis
-      #   uses: actions/cache@v2
-      #   with:
-      #     path: ~/.sonar/cache
-      #     key: ${{ runner.os }}-sonar
-      #     restore-keys: ${{ runner.os }}-sonar
+      - name: SonarCloud Analysis
+        uses: actions/cache@v2
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
       
-      # - uses: SonarSource/sonarcloud-github-action@master
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      #   with:
-      #     args:
-      #       -Dsonar.projectKey=go-bp-calc-k8s
-      #       -Dsonar.organization=hypheni
+      - uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args:
+            -Dsonar.projectKey=go-bp-calc-k8s
+            -Dsonar.organization=hypheni
 
       - name: Vulnerability Check
         uses: Templum/govulncheck-action@v0.10.0
         with:
           go-version: '1.20'
-          # github-token: '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'
           skip-upload: true
           fail-on-vuln: false
         env:
