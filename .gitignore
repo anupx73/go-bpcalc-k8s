@@ -30,3 +30,5 @@ chart
 
 # Misc
 .DS_Store
+
+coverage.out
