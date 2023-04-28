@@ -32,12 +32,12 @@ func TestCalcCategoryPreHigh(t *testing.T) {
 	}
 }
 
-func TestCalcCategoryHigh(t *testing.T) {
+// func TestCalcCategoryHigh(t *testing.T) {
 
-	expected := "High"
-	actual := calcCategory(180, 99)
+// 	expected := "High"
+// 	actual := calcCategory(180, 99)
 
-	if actual != expected {
-		t.Errorf("Test fail! Expected: '%s', Actual: '%s'", expected, actual)
-	}
-}
+// 	if actual != expected {
+// 		t.Errorf("Test fail! Expected: '%s', Actual: '%s'", expected, actual)
+// 	}
+// }

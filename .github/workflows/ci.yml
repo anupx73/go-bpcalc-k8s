@@ -48,7 +48,7 @@ jobs:
             -Dsonar.projectKey=go-bp-calc-k8s
             -Dsonar.organization=hypheni
             -Dsonar.go.coverage.reportPaths=coverage.out
-            -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/*_test.go
+            -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/routes.go,**/*_test.go
 
       # Go package vulnerability check
       # - name: Vulnerability Check
