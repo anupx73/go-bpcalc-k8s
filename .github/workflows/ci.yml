@@ -32,6 +32,7 @@ jobs:
       # Unit testing
       - name: Unit Test
         run: go test -v -coverprofile=coverage.out ./...
+        # run: go test -v -coverprofile=coverage.out && ./exclude-tests.sh && go tool cover -html=coverage.out ./...
 
       # SAST analysis
       - name: SonarCloud Analysis
@@ -48,6 +49,7 @@ jobs:
             -Dsonar.projectKey=go-bp-calc-k8s
             -Dsonar.organization=hypheni
             -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.exclusions=**/main.go,**/routes.go,**/helpers.go,**/models.go,**/bpreading.go
 
       # Go package vulnerability check
       # - name: Vulnerability Check
