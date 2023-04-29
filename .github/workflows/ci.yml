@@ -1,16 +1,12 @@
-name: Continuous Integration
+name: Backend Build
 
 on:
   push:
     branches: [ "feat/security" ]
   workflow_dispatch:
 
-#env:
-  #SONAR_ORG: hypheni
-  #SONAR_PROJ: go-bp-calc-k8s
-  
 jobs:
-  integration:
+  build:
     permissions:
       contents: read
       security-events: write
@@ -54,7 +50,7 @@ jobs:
       #       -Dsonar.go.coverage.reportPaths=coverage.out
       #       -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/routes.go,**/*_test.go
 
-      # # Synk Vulnarability Scan for Go Packages
+      # # Synk Vulnarability Scan of Go Packages
       # - name: Vulnerability Check with Synk
       #   uses: snyk/actions/golang@master
       #   continue-on-error: true
@@ -67,26 +63,26 @@ jobs:
       #   with:
       #     sarif_file: snyk.sarif
 
-      # # Build Container Image
-      # - name: Image build
-      #   run: |
-      #     docker build . --file Dockerfile --tag bpcalc-backend:${{ github.sha }}
+      # Build Container Image
+      - name: Image build
+        run: |
+          docker build . --file Dockerfile --tag bpcalc-backend:${{ github.sha }}
 
-      # # Scan Image for Vulnarability
-      # - name: Trivy Vulnerability Scanner
-      #   uses: aquasecurity/trivy-action@master
-      #   with:
-      #     image-ref: 'bpcalc-backend:${{ github.sha }}'
-      #     format: 'sarif'
-      #     output: 'trivy-results.sarif'
-      #     exit-code: '1'
-      #     ignore-unfixed: true
-      #     vuln-type: 'os,library'
-      #     severity: 'CRITICAL,HIGH'
-      # - uses: github/codeql-action/upload-sarif@v2
-      #   if: always()
-      #   with:
-      #     sarif_file: 'trivy-results.sarif'
+      # Trivy Vulnerability Scan of Container Image
+      - name: Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'bpcalc-backend:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          exit-code: '1'
+          # ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+      - uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
       
       # GCP Auth
       - name: Google Auth
@@ -96,11 +92,7 @@ jobs:
 
       # Push to GCR
       - name: Push to GCR
-        uses: RafikFarhad/push-to-gcr-github-action@v5-beta
-        with:
-          registry: gcr.io
-          project_id: tudublin
-          image_name: bpcalc-backend
-          image_tag: ${{ github.sha }},v1
-          dockerfile: ./Dockerfile
-          context: .
+        run: |-
+          gcloud auth configure-docker
+          docker tag bpcalc-backend:${{ github.sha }} gcr.io/tudublin/bpcalc-backend:${{ github.sha }}
+          docker push gcr.io/tudublin/bpcalc-backend:${{ github.sha }}
