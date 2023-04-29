@@ -77,11 +77,16 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'bpcalc-backend:${{ github.sha }}'
-          format: 'table'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          severity: 'CRITICAL'
+          severity: 'CRITICAL,HIGH'
+      - uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
       
       # GCP Auth
       # - name: Google Auth
