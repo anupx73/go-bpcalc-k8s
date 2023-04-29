@@ -31,9 +31,9 @@ services:
     #     source: ./.tmp
     #     target: /backup
 
-  worker:
-      build: .
-      # image: ghcr.io/anupx73/go-bpcalc-k8s:latest
+  backend:
+      # build: .
+      image: gcr.io/tudublin/bpcalc-backend@sha256:a95f5ba20b0c5835236989d50b83dbceb9ec9a0e81365070819e5ea6dae6a2b5
       command:
         - "-mongoURI"
         - "mongodb://db:27017/"
