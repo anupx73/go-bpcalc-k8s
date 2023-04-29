@@ -2,7 +2,7 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ "feat/cl-response" ]
+    branches: [ "feat/security" ]
   workflow_dispatch:
 
 #env:
@@ -29,9 +29,9 @@ jobs:
           go-version: '1.20'
           cache-dependency-path: subdir/go.sum
       
-      # Code Build
-      - name: Code Build
-        run: go build -v ./...
+      # # Code Build
+      # - name: Code Build
+      #   run: go build -v ./...
       
       # # Unit testing
       # - name: Unit Test
@@ -70,7 +70,7 @@ jobs:
       # Build Container Image
       - name: Image build
         run: |
-          docker build . --file Dockerfile --tag bpcalc-backend:${{ github.sha }} .
+          docker build . --file Dockerfile --tag bpcalc-backend:${{ github.sha }}
 
       # Scan Image for Vulnarability
       - name: Trivy Vulnerability Scanner
