@@ -9,6 +9,7 @@ jobs:
   build:
     permissions:
       contents: read
+      packages: write
       security-events: write
 
     runs-on: ubuntu-22.04
