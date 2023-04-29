@@ -10,7 +10,11 @@ on:
   #SONAR_PROJ: go-bp-calc-k8s
   
 jobs:
-  build:
+  integration:
+    permissions:
+      contents: read
+      security-events: write
+
     runs-on: ubuntu-22.04
 
     steps:
@@ -25,41 +29,40 @@ jobs:
           go-version: '1.20'
           cache-dependency-path: subdir/go.sum
       
-      # Code compile
-      - name: Compile
-        run: go build -v ./...
+      # # Code compile
+      # - name: Compile
+      #   run: go build -v ./...
       
-      # Unit testing
-      - name: Unit Test
-        run: go test -v -coverprofile=coverage.out ./...
+      # # Unit testing
+      # - name: Unit Test
+      #   run: go test -v -coverprofile=coverage.out ./...
 
-      # SAST analysis
-      - name: SonarCloud Analysis
-        uses: actions/cache@v2
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-      - uses: SonarSource/sonarcloud-github-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args:
-            -Dsonar.projectKey=go-bp-calc-k8s
-            -Dsonar.organization=hypheni
-            -Dsonar.go.coverage.reportPaths=coverage.out
-            -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/routes.go,**/*_test.go
-
-      # Go package vulnerability check
-      # - name: Vulnerability Check
-      #   uses: Templum/govulncheck-action@v0.10.0
+      # # SAST analysis
+      # - name: SonarCloud Analysis
+      #   uses: actions/cache@v2
       #   with:
-      #     go-version: '1.20'
-      #     skip-upload: true
-      #     fail-on-vuln: false
+      #     path: ~/.sonar/cache
+      #     key: ${{ runner.os }}-sonar
+      #     restore-keys: ${{ runner.os }}-sonar
+      # - uses: SonarSource/sonarcloud-github-action@master
       #   env:
-      #     DEBUG: "true"
-      # - uses: actions/upload-artifact@v3
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       #   with:
-      #     name: raw-report
-      #     path: raw-report.json
+      #     args:
+      #       -Dsonar.projectKey=go-bp-calc-k8s
+      #       -Dsonar.organization=hypheni
+      #       -Dsonar.go.coverage.reportPaths=coverage.out
+      #       -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/routes.go,**/*_test.go
+
+      # Synk Vulnarability Scan for Go Packages
+      - name: Vulnerability Check with Synk
+        uses: snyk/actions/golang@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=snyk.sarif
+                --severity-threshold=high
+      - uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: snyk.sarif

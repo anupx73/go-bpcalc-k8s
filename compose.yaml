@@ -19,8 +19,8 @@ services:
         published: 80
         protocol: tcp
         mode: host
-      - target: 8080
-        published: 8080
+      - target: 8081
+        published: 8081
         protocol: tcp
         mode: host
 
