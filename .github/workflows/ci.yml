@@ -29,9 +29,9 @@ jobs:
           go-version: '1.20'
           cache-dependency-path: subdir/go.sum
       
-      # # Code compile
-      # - name: Compile
-      #   run: go build -v ./...
+      # Code Build
+      - name: Code Build
+        run: go build -v ./...
       
       # # Unit testing
       # - name: Unit Test
@@ -54,15 +54,41 @@ jobs:
       #       -Dsonar.go.coverage.reportPaths=coverage.out
       #       -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/routes.go,**/*_test.go
 
-      # Synk Vulnarability Scan for Go Packages
-      - name: Vulnerability Check with Synk
-        uses: snyk/actions/golang@master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      # # Synk Vulnarability Scan for Go Packages
+      # - name: Vulnerability Check with Synk
+      #   uses: snyk/actions/golang@master
+      #   continue-on-error: true
+      #   env:
+      #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      #   with:
+      #     args: --sarif-file-output=snyk.sarif
+      #           --severity-threshold=high
+      # - uses: github/codeql-action/upload-sarif@v2
+      #   with:
+      #     sarif_file: snyk.sarif
+
+      # Build Container Image
+      - name: Image build
+        run: |
+          docker build . --file Dockerfile --tag bpcalc-backend:${{ github.sha }} .
+
+      # Scan Image for Vulnarability
+      - name: Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
         with:
-          args: --sarif-file-output=snyk.sarif
-                --severity-threshold=high
-      - uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: snyk.sarif
+          image-ref: 'bpcalc-backend:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+      
+      # GCP Auth
+      # - name: Google Auth
+      #   uses: google-github-actions/auth@v1
+      #   with:
+      #     credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      # # Push to GCR
+      # - name: Push to GCR
+
