@@ -1,0 +1,18 @@
+{
+  "dev": {
+    "serverAddr": "",
+    "serverPort": 9090,
+    "mongoURI": "mongodb://db:27017/",
+    "mongoDatabase": "tudublin",
+    "mongoCollection": "bpreadings",
+    "enableCredentials": false
+  },
+  "prod": {
+    "serverAddr": "",
+    "serverPort": 0,
+    "mongoURI": "",
+    "mongoDatabase": "",
+    "mongoCollection": "",
+    "enableCredentials": false
+  }
+}

@@ -20,7 +20,8 @@ LABEL language="golang"
 LABEL org.opencontainers.image.source https://github.com/anupx73/go-bpcalc-k8s
 # import the user and group files from the builder
 COPY --from=builder /etc/passwd /etc/passwd
-# copy the static executable
+# copy the static executable and config
+COPY config.json ./
 COPY --from=builder --chown=elf:1000 /go/bin/go-backend /go-backend
 # use a non-root user
 USER elf

@@ -67,13 +67,13 @@ jobs:
       # Build Container Image
       - name: Image build
         run: |
-          docker build . --file Dockerfile --tag bpcalc-backend:${{ github.sha }}
+          docker build . --file Dockerfile --tag bpcalc-backend:latest
 
       # Trivy Scan for Container Image Vulnerability
       - name: Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'bpcalc-backend:${{ github.sha }}'
+          image-ref: 'bpcalc-backend:latest'
           format: 'sarif'
           output: 'trivy-results.sarif'
           exit-code: '1'
@@ -95,5 +95,5 @@ jobs:
       - name: Push to GCR
         run: |-
           gcloud auth configure-docker
-          docker tag bpcalc-backend:${{ github.sha }} gcr.io/tudublin/bpcalc-backend:${{ github.sha }}
-          docker push gcr.io/tudublin/bpcalc-backend:${{ github.sha }}
+          docker tag bpcalc-backend:latest gcr.io/tudublin/bpcalc-backend:latest
+          docker push gcr.io/tudublin/bpcalc-backend:latest

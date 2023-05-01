@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/anupx73/go-bpcalc-backend-k8s/pkg/models/mongodb"
+	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -21,22 +21,27 @@ type application struct {
 }
 
 func main() {
+	// Read Config file
+	viper.AddConfigPath(".")
+	viper.SetConfigName("config")
+	viper.SetConfigType("json")
+	viper.ReadInConfig()
 
-	// Define command-line flags
-	serverAddr := flag.String("serverAddr", "", "HTTP server network address")
-	serverPort := flag.Int("serverPort", 4000, "HTTP server network port")
-	mongoURI := flag.String("mongoURI", "mongodb://localhost:27017", "Database hostname url")
-	mongoDatabase := flag.String("mongoDatabase", "bpreadings", "Database name")
-	enableCredentials := flag.Bool("enableCredentials", false, "Enable the use of credentials for mongo connection")
-	flag.Parse()
+	// Get Config data
+	serverAddr := viper.GetString("dev.serverAddr")
+	serverPort := viper.GetInt("dev.serverPort")
+	mongoURI := viper.GetString("dev.mongoURI")
+	mongoDatabase := viper.GetString("dev.mongoDatabase")
+	mongoCollection := viper.GetString("dev.mongoCollection")
+	enableCredentials := viper.GetBool("dev.enableCredentials")
 
 	// Create logger for writing information and error messages.
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
 	// Create mongo client configuration
-	co := options.Client().ApplyURI(*mongoURI)
-	if *enableCredentials {
+	co := options.Client().ApplyURI(mongoURI)
+	if enableCredentials {
 		co.Auth = &options.Credential{
 			Username: os.Getenv("MONGODB_USERNAME"),
 			Password: os.Getenv("MONGODB_PASSWORD"),
@@ -69,12 +74,12 @@ func main() {
 		infoLog:  infoLog,
 		errorLog: errLog,
 		bpReadings: &mongodb.BPReadingModel{
-			C: client.Database(*mongoDatabase).Collection("bpreadings"),
+			C: client.Database(mongoDatabase).Collection(mongoCollection),
 		},
 	}
 
 	// Initialize a new http.Server struct.
-	serverURI := fmt.Sprintf("%s:%d", *serverAddr, *serverPort)
+	serverURI := fmt.Sprintf("%s:%d", serverAddr, serverPort)
 	srv := &http.Server{
 		Addr:         serverURI,
 		ErrorLog:     errLog,

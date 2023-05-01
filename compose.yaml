@@ -1,42 +1,9 @@
 services:
-  proxy:
-    image: traefik:v2.4.2
-    command:
-      # - "--log.level=DEBUG"
-      - "--api=true"
-      - "--api.dashboard=true"
-      - "--api.insecure=true" # Don't do that in production
-      - "--providers.docker"
-      - "--entrypoints.web.address=:80"
-    labels: {}
-    volumes:
-      - type: bind
-        source: /var/run/docker.sock
-        target: /var/run/docker.sock
-        read_only: true
-    ports:
-      - target: 80
-        published: 80
-        protocol: tcp
-        mode: host
-      - target: 8081
-        published: 8081
-        protocol: tcp
-        mode: host
-
   db:
     image: mongo:4.2.23
-    # volumes:
-    #   - type: bind
-    #     source: ./.tmp
-    #     target: /backup
 
   backend:
-      # build: .
-      image: gcr.io/tudublin/bpcalc-backend@sha256:a95f5ba20b0c5835236989d50b83dbceb9ec9a0e81365070819e5ea6dae6a2b5
-      command:
-        - "-mongoURI"
-        - "mongodb://db:27017/"
-      labels:
-        - "traefik.http.routers.worker.rule=PathPrefix(`/api/bpcalc/`)"
-        - "traefik.http.services.worker.loadbalancer.server.port=4000"
+    build: .
+    # image: gcr.io/tudublin/bpcalc-backend@latest
+    ports:
+      - "80:9090"
