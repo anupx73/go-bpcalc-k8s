@@ -10,6 +10,7 @@ import (
 
 	"github.com/anupx73/go-bpcalc-backend-k8s/pkg/models/mongodb"
 	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -33,41 +34,28 @@ func main() {
 	mongoURI := viper.GetString("dev.mongoURI")
 	mongoDatabase := viper.GetString("dev.mongoDatabase")
 	mongoCollection := viper.GetString("dev.mongoCollection")
-	enableCredentials := viper.GetBool("dev.enableCredentials")
 
 	// Create logger for writing information and error messages.
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
 	// Create mongo client configuration
-	co := options.Client().ApplyURI(mongoURI)
-	if enableCredentials {
-		co.Auth = &options.Credential{
-			Username: os.Getenv("MONGODB_USERNAME"),
-			Password: os.Getenv("MONGODB_PASSWORD"),
-		}
-	}
-
-	// Establish database connection
-	client, err := mongo.NewClient(co)
+	opts := options.Client().ApplyURI(mongoURI)
+	// Create a new client and connect to the server
+	client, err := mongo.Connect(context.TODO(), opts)
 	if err != nil {
-		errLog.Fatal(err)
+		panic(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	err = client.Connect(ctx)
-	if err != nil {
-		errLog.Fatal(err)
-	}
-
 	defer func() {
-		if err = client.Disconnect(ctx); err != nil {
+		if err = client.Disconnect(context.TODO()); err != nil {
 			panic(err)
 		}
 	}()
-
-	infoLog.Printf("Database connection established")
+	// Send a ping to confirm a successful connection
+	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Err(); err != nil {
+		panic(err)
+	}
+	infoLog.Printf("Database deployment is reachable!!")
 
 	// Initialize a new instance of application containing the dependencies.
 	app := &application{

@@ -2,9 +2,9 @@
   "dev": {
     "serverAddr": "",
     "serverPort": 9090,
-    "mongoURI": "mongodb://db:27017/",
-    "mongoDatabase": "tudublin",
-    "mongoCollection": "bpreadings",
+    "mongoURI": "mongodb+srv://user:pass@atlas-stg.qzcts.mongodb.net/?retryWrites=true&w=majority",
+    "mongoDatabase": "bpreadings",
+    "mongoCollection": "backend",
     "enableCredentials": false
   },
   "prod": {
