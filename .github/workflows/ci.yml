@@ -2,8 +2,17 @@ name: Backend Build
 
 on:
   push:
-    branches: [ "feat/security" ]
+    branches: [ "feat/helm" ]
   workflow_dispatch:
+
+env:
+  GCP_PROJECT: tudublin
+  GKE_ZONE: europe-west1-b
+  GKE_CLUSTER: gke-stg
+  DEPLOYMENT_NAME: backend-deployment
+  IMAGE_NAME: backend
+  IMAGE_TAG: v1.0.${{ github.run_number }}
+  RELEASE_NAME: backend
 
 jobs:
   build:
@@ -19,81 +28,96 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         
-      # Install Go
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.20'
-          cache-dependency-path: subdir/go.sum
+      # # Install Go
+      # - name: Set up Go
+      #   uses: actions/setup-go@v4
+      #   with:
+      #     go-version: '1.20'
+      #     cache-dependency-path: subdir/go.sum
       
-      # Code Build
-      - name: Code Build
-        run: go build -v ./...
+      # # Code Build
+      # - name: Code Build
+      #   run: go build -v ./...
       
-      # Unit testing
-      - name: Unit Test
-        run: go test -v -coverprofile=coverage.out ./...
+      # # Unit testing
+      # - name: Unit Test
+      #   run: go test -v -coverprofile=coverage.out ./...
 
-      # Sonar Static Code analysis
-      - name: SonarCloud Analysis
-        uses: actions/cache@v2
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-      - uses: SonarSource/sonarcloud-github-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args:
-            -Dsonar.projectKey=go-bp-calc-k8s
-            -Dsonar.organization=hypheni
-            -Dsonar.go.coverage.reportPaths=coverage.out
-            -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/routes.go,**/*_test.go
+      # # Sonar Static Code analysis
+      # - name: SonarCloud Analysis
+      #   uses: actions/cache@v2
+      #   with:
+      #     path: ~/.sonar/cache
+      #     key: ${{ runner.os }}-sonar
+      #     restore-keys: ${{ runner.os }}-sonar
+      # - uses: SonarSource/sonarcloud-github-action@master
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #   with:
+      #     args:
+      #       -Dsonar.projectKey=go-bp-calc-k8s
+      #       -Dsonar.organization=hypheni
+      #       -Dsonar.go.coverage.reportPaths=coverage.out
+      #       -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/routes.go,**/*_test.go
 
-      # Synk Scan for Go Packages Vulnarability
-      - name: Vulnerability Check with Synk
-        uses: snyk/actions/golang@master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --sarif-file-output=snyk.sarif
-                --severity-threshold=high
-      - uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: snyk.sarif
+      # # Synk Scan for Go Packages Vulnarability
+      # - name: Vulnerability Check with Synk
+      #   uses: snyk/actions/golang@master
+      #   continue-on-error: true
+      #   env:
+      #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      #   with:
+      #     args: --sarif-file-output=snyk.sarif
+      #           --severity-threshold=high
+      # - uses: github/codeql-action/upload-sarif@v2
+      #   with:
+      #     sarif_file: snyk.sarif
 
       # Build Container Image
       - name: Image build
         run: |
-          docker build . --file Dockerfile --tag bpcalc-backend:latest
+          docker build . --file Dockerfile --tag $IMAGE_NAME:$IMAGE_TAG
 
-      # Trivy Scan for Container Image Vulnerability
-      - name: Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'bpcalc-backend:latest'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-      - uses: github/codeql-action/upload-sarif@v2
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
+      # # Trivy Scan for Container Image Vulnerability
+      # - name: Trivy Vulnerability Scanner
+      #   uses: aquasecurity/trivy-action@master
+      #   with:
+      #     image-ref: '$IMAGE_NAME:$IMAGE_TAG'
+      #     format: 'sarif'
+      #     output: 'trivy-results.sarif'
+      #     exit-code: '1'
+      #     ignore-unfixed: true
+      #     vuln-type: 'os,library'
+      #     severity: 'CRITICAL,HIGH'
+      # - uses: github/codeql-action/upload-sarif@v2
+      #   if: always()
+      #   with:
+      #     sarif_file: 'trivy-results.sarif'
       
-      # GCP Auth
-      - name: Google Auth
+      # GCP Set up
+      - name: GCP Auth
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+      - name: GCP Config
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: latest
+      - name: GCP Update
+        run: |-
+          gcloud components install gke-gcloud-auth-plugin
+          gcloud auth configure-docker
+          gcloud container clusters get-credentials $GKE_CLUSTER --zone $GKE_ZONE --project $GCP_PROJECT
 
       # Push to GCR
       - name: Push to GCR
         run: |-
-          gcloud auth configure-docker
-          docker tag bpcalc-backend:latest gcr.io/tudublin/bpcalc-backend:latest
-          docker push gcr.io/tudublin/bpcalc-backend:latest
+          docker tag $IMAGE_NAME:$IMAGE_TAG gcr.io/$GCP_PROJECT/$IMAGE_NAME:$IMAGE_TAG
+          docker push gcr.io/$GCP_PROJECT/$IMAGE_NAME:$IMAGE_TAG
+
+      # Deploy to GKE
+      - name: Deploy to GKE
+        run: |
+          helm upgrade $RELEASE_NAME helm/ --install --set image.tag=$IMAGE_TAG --wait
+          kubectl rollout status deployment/$DEPLOYMENT_NAME
+          kubectl get services -o wide
