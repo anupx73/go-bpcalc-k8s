@@ -8,3 +8,5 @@ image:
 container:
   name: backend
   port: 9090
+  vault-addr: ""
+  vault-token: ""

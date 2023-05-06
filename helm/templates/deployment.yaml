@@ -18,3 +18,7 @@ spec:
         env:
         - name: "PORT"
           value: "{{ .Values.container.port }}"
+        - name: "VAULT_ADDR"
+          value: "{{ .Values.container.vault-addr }}"
+        - name: "VAULT_TOKEN"
+          value: "{{ .Values.container.vault-token }}"
