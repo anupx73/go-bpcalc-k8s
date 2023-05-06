@@ -2,15 +2,14 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/anupx73/go-bpcalc-backend-k8s/pkg/models/mongodb"
-	vault "github.com/hashicorp/vault/api"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -21,37 +20,6 @@ type application struct {
 	errorLog   *log.Logger
 	infoLog    *log.Logger
 	bpReadings *mongodb.BPReadingModel
-}
-
-func getVaultSecrets() (string, string, string, error) {
-	config := vault.DefaultConfig()
-	config.Address = os.Getenv("VAULT_ADDR")
-
-	client, err := vault.NewClient(config)
-	if err != nil {
-		return "", "", "", errors.New("Vault init failed; err: " + fmt.Sprintf("%v", err))
-	}
-
-	client.SetToken(os.Getenv("VAULT_TOKEN"))
-	secret, err := client.KVv2("tudublin").Get(context.Background(), "mongo-atlas")
-	if err != nil {
-		return "", "", "", errors.New("Unable to read Vault secret; err: " + fmt.Sprintf("%v", err))
-	}
-
-	dbUri, ok := secret.Data["url"].(string)
-	if !ok {
-		return "", "", "", errors.New("db url type assertion failed")
-	}
-	dbUsername, ok := secret.Data["username"].(string)
-	if !ok {
-		return "", "", "", errors.New("username type assertion failed")
-	}
-	dbPassword, ok := secret.Data["password"].(string)
-	if !ok {
-		return "", "", "", errors.New("password type assertion failed")
-	}
-
-	return dbUri, dbUsername, dbPassword, nil
 }
 
 func getMongoDBConnection(url string) (*mongo.Client, string, error) {
@@ -76,6 +44,18 @@ func getMongoDBConnection(url string) (*mongo.Client, string, error) {
 	return client, "Database deployment is reachable!!", nil
 }
 
+func funnyParsingForVaultIssue853(rawFileData string) (string, string, string) {
+	split1 := strings.Split(rawFileData, "[")
+	split2 := strings.Split(split1[1], "]")
+	split3 := strings.Split(split2[0], " ")
+
+	pwd := strings.Split(split3[0], ":")
+	url := strings.Split(split3[1], ":")
+	user := strings.Split(split3[2], ":")
+
+	return user[1], pwd[1], url[1]
+}
+
 func main() {
 	// Read Config file
 	viper.AddConfigPath(".")
@@ -93,15 +73,18 @@ func main() {
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
-	// Get Vault secrets for mongo
-	uri, user, pass, err := getVaultSecrets()
+	// Get mongo connection string from Vault config
+	rawBytes, err := os.ReadFile("/vault/secrets/database-config.txt")
 	if err != nil {
 		errLog.Panic(err)
 	}
-	fullMongoURI := "mongodb+srv://" + user + ":" + pass + "@" + uri
+	// workaround to bypass vault-helm issue 853
+	user, pass, url := funnyParsingForVaultIssue853(string(rawBytes[:]))
+	mongoUri := "mongodb+srv://" + user + ":" + pass + "@" + url + "/?retryWrites=true&w=majority"
+	infoLog.Printf("connection str: " + mongoUri)
 
 	// Database connection
-	client, status, err := getMongoDBConnection(fullMongoURI)
+	client, status, err := getMongoDBConnection(mongoUri)
 	if err != nil {
 		errLog.Panic(err)
 	}

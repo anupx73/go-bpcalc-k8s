@@ -2,11 +2,9 @@ replicaCount: 1
 
 image:
   repository: gcr.io/tudublin/backend
-  tag: v1.0.24
+  tag: v1.0.98-manual
   pullPolicy: IfNotPresent
 
 container:
   name: backend
   port: 9090
-  vault-addr: ""
-  vault-token: ""

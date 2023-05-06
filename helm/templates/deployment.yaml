@@ -11,14 +11,21 @@ spec:
     metadata:
       labels:
         repo: bpcalc
+      annotations:
+        vault.hashicorp.com/role: 'internal-app'
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/agent-inject-status: 'update'
+        vault.hashicorp.com/agent-inject-secret-database-config.txt: 'internal/data/database/config'
     spec:
+      serviceAccountName: internal-app
       containers:
       - name: {{ .Values.container.name }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         env:
         - name: "PORT"
           value: "{{ .Values.container.port }}"
-        - name: "VAULT_ADDR"
-          value: "{{ .Values.container.vault-addr }}"
-        - name: "VAULT_TOKEN"
-          value: "{{ .Values.container.vault-token }}"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: internal-app

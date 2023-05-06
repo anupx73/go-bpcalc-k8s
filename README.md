@@ -38,3 +38,19 @@ GOPROXY=proxy.golang.org go list -m github.com/anupx73/go-bpcalc-backend-k8s@v0.
 ```
 curl  -X POST http://backend-service/api/bpcalc/ -H "Content-Type: application/json" -d '{"name":"Steven A","email":"steven.a@domain.com","systolic":"120","diastolic":"80"}'
 ```
+
+## Vault Helm Issue
+
+The following annotation in deployment.yaml did not work and thrown. 
+*Error: INSTALLATION FAILED: parse error at (backend-chart/templates/deployment.yaml:20): function "secret" not defined*
+
+```
+vault.hashicorp.com/agent-inject-template-database-config.txt: |
+  {{- with secret "internal/data/database/config" -}}
+  mongodb+srv://{{ .Data.data.username }}:{{ .Data.data.password }}@{{ .Data.data.url }}/?retryWrites=true&w=majority
+  {{- end -}}
+```
+
+This seems to be an issue at vault-helm repo [issue-853](https://github.com/hashicorp/vault-helm/issues/853)
+
+Currently, as a workaround `main.go` is parsing the raw Vault file to extract database credentials.
