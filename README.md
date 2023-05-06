@@ -36,7 +36,5 @@ GOPROXY=proxy.golang.org go list -m github.com/anupx73/go-bpcalc-backend-k8s@v0.
 ## Testing
 
 ```
-curl  -X POST http://localhost/api/bpcalc/ \
-      -H "Content-Type: application/json" \
-      -d '{"name":"Steven A","email":"steven.a@domain.com","systolic":120,"diastolic":80}'
+curl  -X POST http://backend-service/api/bpcalc/ -H "Content-Type: application/json" -d '{"name":"Steven A","email":"steven.a@domain.com","systolic":"120","diastolic":"80"}'
 ```
