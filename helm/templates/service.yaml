@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {{ .Values.container.name }}-service
 spec:
-  type: LoadBalancer
+  type: NodePort
   selector:
     repo: bpcalc
   ports:
