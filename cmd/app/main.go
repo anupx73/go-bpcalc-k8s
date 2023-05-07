@@ -22,27 +22,28 @@ type application struct {
 	bpReadings *mongodb.BPReadingModel
 }
 
-func getMongoDBConnection(url string) (*mongo.Client, string, error) {
-	// Create mongo client configuration
-	opts := options.Client().ApplyURI(url)
+// TODO - return a new object for 'client' in heap
+// func getMongoDBConnection(url string) (*mongo.Client, string, error) {
+// 	// Create mongo client configuration
+// 	opts := options.Client().ApplyURI(url)
 
-	// Create a new client and connect to the server
-	client, err := mongo.Connect(context.TODO(), opts)
-	if err != nil {
-		return nil, "", err
-	}
-	defer func() {
-		if err = client.Disconnect(context.TODO()); err != nil {
-			panic(err)
-		}
-	}()
-	// Send a ping to confirm a successful connection
-	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Err(); err != nil {
-		return nil, "", err
-	}
+// 	// Create a new client and connect to the server
+// 	client, err := mongo.Connect(context.TODO(), opts)
+// 	if err != nil {
+// 		return nil, "", err
+// 	}
+// 	defer func() {
+// 		if err = client.Disconnect(context.TODO()); err != nil {
+// 			panic(err)
+// 		}
+// 	}()
+// 	// Send a ping to confirm a successful connection
+// 	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Err(); err != nil {
+// 		return nil, "", err
+// 	}
 
-	return client, "Database deployment is reachable!!", nil
-}
+// 	return client, "Database deployment is reachable!!", nil
+// }
 
 func funnyParsingForVaultIssue853(rawFileData string) (string, string, string) {
 	split1 := strings.Split(rawFileData, "[")
@@ -78,17 +79,29 @@ func main() {
 	if err != nil {
 		errLog.Panic(err)
 	}
+	// mongoUri := string(rawBytes[:])
 	// workaround to bypass vault-helm issue 853
 	user, pass, url := funnyParsingForVaultIssue853(string(rawBytes[:]))
 	mongoUri := "mongodb+srv://" + user + ":" + pass + "@" + url + "/?retryWrites=true&w=majority"
-	infoLog.Printf("connection str: " + mongoUri)
 
 	// Database connection
-	client, status, err := getMongoDBConnection(mongoUri)
+	opts := options.Client().ApplyURI(mongoUri)
+
+	// Create a new client and connect to the server
+	client, err := mongo.Connect(context.TODO(), opts)
 	if err != nil {
 		errLog.Panic(err)
 	}
-	infoLog.Printf(status)
+	defer func() {
+		if err = client.Disconnect(context.TODO()); err != nil {
+			errLog.Panic(err)
+		}
+	}()
+	// Send a ping to confirm a successful connection
+	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Err(); err != nil {
+		errLog.Panic(err)
+	}
+	infoLog.Println("Database deployment is reachable!!")
 
 	// Initialize a new instance of application containing the dependencies.
 	app := &application{
