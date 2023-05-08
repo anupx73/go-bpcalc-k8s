@@ -83,6 +83,7 @@ func main() {
 	// workaround to bypass vault-helm issue 853
 	user, pass, url := funnyParsingForVaultIssue853(string(rawBytes[:]))
 	mongoUri := "mongodb+srv://" + user + ":" + pass + "@" + url + "/?retryWrites=true&w=majority"
+	// mongoUri := "mongodb://localhost:27017/"
 
 	// Database connection
 	opts := options.Client().ApplyURI(mongoUri)

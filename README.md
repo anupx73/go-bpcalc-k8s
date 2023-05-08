@@ -13,6 +13,8 @@ This backend service is written in Go which provides the following endpoints and
 | Insert BP Reading | `POST` | `/api/bpcalc/` |
 | Delete BP Reading | `DELETE` | `/api/bpcalc/{id}` |
 
+Currently due to the GCE Ingress path forwarding problem this app is limited to serve at root path for both GET and POST requests, hence the above endpoints are for refernce only. The original code (routes.go) is commented for future use.
+
 This Go project template is sourced from: [mmorejon](https://github.com/mmorejon/microservices-docker-go-mongodb) and the main purpose of this project remains to demonstrate microservice deployment to kubernetes.
 
 ## Build Commands
@@ -37,6 +39,14 @@ GOPROXY=proxy.golang.org go list -m github.com/anupx73/go-bpcalc-backend-k8s@v0.
 
 ```
 curl  -X POST http://backend-service/api/bpcalc/ -H "Content-Type: application/json" -d '{"name":"Steven A","email":"steven.a@domain.com","systolic":"120","diastolic":"80"}'
+```
+
+## Manually Image Build and Push
+
+```
+docker build . --file Dockerfile --tag backend:v1.0.99-manual
+docker tag backend:v1.0.98-manual gcr.io/tudublin/backend:v1.0.98-manual
+docker push gcr.io/tudublin/backend:v1.0.98-manual
 ```
 
 ## Vault Helm Issue
