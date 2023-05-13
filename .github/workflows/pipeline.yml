@@ -1,0 +1,240 @@
+name: Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT: tudublin
+  GKE_ZONE: europe-west1-b
+  GKE_CLUSTER_DEV: gke-stg
+  GKE_CLUSTER_STG: gke-stg
+  DEPLOYMENT_NAME: backend-deployment
+  IMAGE_NAME: backend
+  IMAGE_TAG: v1.0.${{ github.run_number }}
+  RELEASE_NAME: backend
+
+jobs:
+  # -------------- CI Build ---------------
+  build:
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      # Git checkout
+      - name: Checkout
+        uses: actions/checkout@v3
+        
+      # Install Go
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+          cache-dependency-path: subdir/go.sum
+      
+      # Code Build
+      - name: Code Build
+        run: go build -v ./...
+      
+      # Unit testing
+      - name: Unit Test
+        run: go test -v -coverprofile=coverage.out ./...
+
+      # Sonar Static Code analysis
+      - name: SonarCloud Analysis
+        uses: actions/cache@v2
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      - uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args:
+            -Dsonar.projectKey=go-bp-calc-k8s
+            -Dsonar.organization=hypheni
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/routes.go,**/*_test.go
+
+      # Synk Scan for Go Packages Vulnarability
+      - name: Vulnerability Check with Synk
+        uses: snyk/actions/golang@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=go-scan-snyk.sarif
+                --severity-threshold=high
+      - uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: go-scan-snyk.sarif
+
+      # Build Container Image
+      - name: Image build
+        run: |
+          docker build . --file Dockerfile --tag $IMAGE_NAME:$IMAGE_TAG
+
+      # Container Vulnerability Scan
+      - name: Scan Container Image for Vulnerabilities
+        continue-on-error: true
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: $IMAGE_NAME:$IMAGE_TAG
+          args: --file=Dockerfile
+      - uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: snyk.sarif
+
+      # # Trivy Scan for Container Image Vulnerability
+      # # This is broken as off 12-May: Reported to Trivy Community
+      # - name: Trivy Vulnerability Scanner
+      #   uses: aquasecurity/trivy-action@master
+      #   with:
+      #     image-ref: '$IMAGE_NAME:$IMAGE_TAG'
+      #     format: 'sarif'
+      #     output: 'trivy-results.sarif'
+      #     exit-code: '1'
+      #     ignore-unfixed: true
+      #     vuln-type: 'os,library'
+      #     severity: 'CRITICAL,HIGH'
+      # - uses: github/codeql-action/upload-sarif@v2
+      #   if: always()
+      #   with:
+      #     sarif_file: 'trivy-results.sarif'
+      
+      # GCP Set up
+      - name: GCP Auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+      - name: GCP Config
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: latest
+
+      # Push to GCR
+      - name: Push to GCR
+        run: |-
+          gcloud auth configure-docker
+          docker tag $IMAGE_NAME:$IMAGE_TAG gcr.io/$GCP_PROJECT/$IMAGE_NAME:$IMAGE_TAG
+          docker push gcr.io/$GCP_PROJECT/$IMAGE_NAME:$IMAGE_TAG
+
+  # -------------- CD to Dev ---------------
+  deploy-dev:
+    if: github.ref != 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      # Git Checkout
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      # GCP Set up
+      - name: GCP Auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+      - name: GCP Config
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: latest
+      
+      # Config dev env on feat branch push
+      - name: Connecting to Dev Env
+        run: |-
+          gcloud components install gke-gcloud-auth-plugin
+          gcloud auth configure-docker
+          gcloud container clusters get-credentials $GKE_CLUSTER_DEV --zone $GKE_ZONE --project $GCP_PROJECT
+
+      # Deploy to GKE Dev
+      - name: Deploying to GKE Dev
+        run: |
+          helm upgrade $RELEASE_NAME helm/ --install --set image.tag=$IMAGE_TAG --wait
+          kubectl rollout status deployment/$DEPLOYMENT_NAME
+          kubectl get services -o wide
+
+  # -------------- CD to Stg ---------------
+  deploy-stg:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      # Git Checkout
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # GCP Set up
+      - name: GCP Auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+      - name: GCP Config
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: latest
+      
+      # Config staging env on main branch push
+      - name: Connecting to Staging Env
+        run: |-
+          gcloud components install gke-gcloud-auth-plugin
+          gcloud auth configure-docker
+          gcloud container clusters get-credentials $GKE_CLUSTER_STG --zone $GKE_ZONE --project $GCP_PROJECT
+
+      # Deploy to GKE Stg
+      - name: Deploying to GKE Stg
+        run: |
+          helm upgrade $RELEASE_NAME helm/ --install --set image.tag=$IMAGE_TAG --wait
+          kubectl rollout status deployment/$DEPLOYMENT_NAME
+          kubectl get services -o wide
+
+  # -------------- QA Testing ---------------
+  continuous-testing:
+    needs: deploy-dev
+    if: ${{ success() }}
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    steps:
+    # Git Checkout
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # Perf test placeholder - Need to write K6 load testing script
+    # - name: Load Testing
+    #   run: |
+    #     docker pull loadimpact/k6
+    #     ls -al $PWD/src
+    #     docker run -v $PWD/src:/data -i loadimpact/k6 run - <tests/perf.test.js > k6report.txt
+    #     mv ${{github.workspace}}/k6report.txt ${{github.workspace}}/reports/load-test-report.txt
+
+    - name: Retrieve App URL
+      id: geturl
+      run: |
+        echo "BPCALC_URL=$(jq '.stg.url' config.json)" >> $GITHUB_OUTPUT
+
+    - name: Penetration Testing
+      run: |
+        echo 'Hitting url: ${{ steps.geturl.outputs.BPCALC_URL }}'
+        mkdir -p ${{github.workspace}}/reports
+        docker pull owasp/zap2docker-weekly
+        docker run -v /tmp:/zap/wrk/:rw --user root -t owasp/zap2docker-weekly zap-baseline.py -t ${{ steps.geturl.outputs.BPCALC_URL }} -I -r zapreport.html
+        sudo mv /tmp/zapreport.html ${{github.workspace}}/reports/pen-test-report.html
+
+    # Test Report Upload
+    - name: Uploading reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: qa-test-reports
+        path: ${{github.workspace}}/reports/*

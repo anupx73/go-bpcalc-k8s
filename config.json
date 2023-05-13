@@ -14,5 +14,8 @@
     "mongoDatabase": "",
     "mongoCollection": "",
     "enableCredentials": false
+  },
+  "stg": {
+    "url": ""
   }
 }
