@@ -13,7 +13,7 @@ This backend service is written in Go which provides the following endpoints and
 | Insert BP Reading | `POST` | `/api/bpcalc/` |
 | Delete BP Reading | `DELETE` | `/api/bpcalc/{id}` |
 
-Currently due to the GCE Ingress path forwarding problem this app is limited to serve at root path for both GET and POST requests, hence the above endpoints are for refernce only. The original code (routes.go) is commented for future use.
+Currently due to GCE ingress controller rule resolving [issue](https://www.googlecloudcommunity.com/gc/Google-Kubernetes-Engine-GKE/GCE-ingress-to-route-traffic-to-multiple-services/m-p/551562#M696) this app is limited to serve at root path, hence the above endpoints are for refernce only. The original code (routes.go) is commented for future use and shall be reused if the Nginx ingress is used.
 
 This Go project template is sourced from: [mmorejon](https://github.com/mmorejon/microservices-docker-go-mongodb) and the main purpose of this project remains to demonstrate microservice deployment to kubernetes.
 
@@ -44,9 +44,9 @@ curl  -X POST http://backend-service/api/bpcalc/ -H "Content-Type: application/j
 ## Manually Image Build and Push
 
 ```
-docker build . --file Dockerfile --tag backend:v1.0.99-manual
-docker tag backend:v1.0.98-manual gcr.io/tudublin/backend:v1.0.98-manual
-docker push gcr.io/tudublin/backend:v1.0.98-manual
+docker build . --file Dockerfile --tag backend:v1.0.99-manual;
+docker tag backend:v1.0.99-manual gcr.io/tudublin/backend:v1.0.99-manual;
+docker push gcr.io/tudublin/backend:v1.0.99-manual
 ```
 
 ## Vault Helm Issue

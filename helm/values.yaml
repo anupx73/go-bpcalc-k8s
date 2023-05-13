@@ -2,9 +2,15 @@ replicaCount: 1
 
 image:
   repository: gcr.io/tudublin/backend
-  tag: v1.0.98-manual
-  pullPolicy: IfNotPresent
+  tag: v1.0.99-manual
+  pullPolicy: Always
 
 container:
   name: backend
   port: 9090
+
+service:
+  name: backend-service
+  ingressName: be-ingress
+  staticIP: backend-ip
+  port: 80
