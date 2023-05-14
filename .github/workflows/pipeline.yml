@@ -15,7 +15,8 @@ env:
   DEPLOYMENT_NAME: backend-deployment
   IMAGE_NAME: backend
   IMAGE_TAG: v1.0.${{ github.run_number }}
-  RELEASE_NAME: backend
+  HELM_RELEASE: backend
+  K8S_NAMESPACE: ns-backend
 
 jobs:
   # -------------- CI Build ---------------
@@ -82,35 +83,21 @@ jobs:
         run: |
           docker build . --file Dockerfile --tag $IMAGE_NAME:$IMAGE_TAG
 
-      # Container Vulnerability Scan
-      - name: Scan Container Image for Vulnerabilities
-        continue-on-error: true
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      # Trivy Scan for Container Image Vulnerability
+      - name: Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
         with:
-          image: $IMAGE_NAME:$IMAGE_TAG
-          args: --file=Dockerfile
+          image-ref: '${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
       - uses: github/codeql-action/upload-sarif@v2
+        if: always()
         with:
-          sarif_file: snyk.sarif
-
-      # # Trivy Scan for Container Image Vulnerability
-      # # This is broken as off 12-May: Reported to Trivy Community
-      # - name: Trivy Vulnerability Scanner
-      #   uses: aquasecurity/trivy-action@master
-      #   with:
-      #     image-ref: '$IMAGE_NAME:$IMAGE_TAG'
-      #     format: 'sarif'
-      #     output: 'trivy-results.sarif'
-      #     exit-code: '1'
-      #     ignore-unfixed: true
-      #     vuln-type: 'os,library'
-      #     severity: 'CRITICAL,HIGH'
-      # - uses: github/codeql-action/upload-sarif@v2
-      #   if: always()
-      #   with:
-      #     sarif_file: 'trivy-results.sarif'
+          sarif_file: 'trivy-results.sarif'
       
       # GCP Set up
       - name: GCP Auth
@@ -159,9 +146,9 @@ jobs:
       # Deploy to GKE Dev
       - name: Deploying to GKE Dev
         run: |
-          helm upgrade $RELEASE_NAME helm/ --install --set image.tag=$IMAGE_TAG --wait
-          kubectl rollout status deployment/$DEPLOYMENT_NAME
-          kubectl get services -o wide
+          helm upgrade $HELM_RELEASE helm/ --install --set image.tag=$IMAGE_TAG --namespace $K8S_NAMESPACE --create-namespace --wait
+          kubectl --namespace $K8S_NAMESPACE rollout status deployment/$DEPLOYMENT_NAME
+          kubectl --namespace $K8S_NAMESPACE get services -o wide
 
   # -------------- CD to Stg ---------------
   deploy-stg:
@@ -193,9 +180,9 @@ jobs:
       # Deploy to GKE Stg
       - name: Deploying to GKE Stg
         run: |
-          helm upgrade $RELEASE_NAME helm/ --install --set image.tag=$IMAGE_TAG --wait
-          kubectl rollout status deployment/$DEPLOYMENT_NAME
-          kubectl get services -o wide
+          helm upgrade $HELM_RELEASE helm/ --install --set image.tag=$IMAGE_TAG --namespace $K8S_NAMESPACE --create-namespace --wait
+          kubectl --namespace $K8S_NAMESPACE rollout status deployment/$DEPLOYMENT_NAME
+          kubectl --namespace $K8S_NAMESPACE get services -o wide
 
   # -------------- QA Testing ---------------
   continuous-testing:
@@ -238,3 +225,34 @@ jobs:
       with:
         name: qa-test-reports
         path: ${{github.workspace}}/reports/*
+
+# -------------- Release ---------------
+  release:
+    needs: deploy-dev
+    if: ${{ success() }}
+    runs-on: ubuntu-22.04
+    permissions: write-all
+
+    steps:
+    # Git Checkout
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    # Changelog based on last git commit message
+    - name: Retrieve Last Commit Msg
+      id: getCommitMsg
+      run: |
+        echo "RELEASE_NOTE=$(git show -s --format=%s)" >> $GITHUB_OUTPUT
+
+    # Create Release
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ env.IMAGE_TAG }}
+        name: '${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}'
+        body: |
+          **Docker Image**  
+          gcr.io/${{ env.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{env.IMAGE_TAG }} 
+
+          **Changes**  
+          ${{ steps.getCommitMsg.outputs.RELEASE_NOTE }}
