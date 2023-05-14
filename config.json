@@ -16,6 +16,6 @@
     "enableCredentials": false
   },
   "stg": {
-    "url": ""
+    "url": "http://34.111.36.155/"
   }
 }
