@@ -1,7 +1,7 @@
 # base image
 FROM golang:1.19.3-alpine AS builder
 # create appuser.
-RUN adduser -D -g '' elf
+RUN adduser -D -g '' 1000
 # create workspace
 WORKDIR /opt/app/
 COPY go.mod go.sum ./
@@ -20,9 +20,10 @@ LABEL language="golang"
 LABEL org.opencontainers.image.source https://github.com/anupx73/go-bpcalc-k8s
 # import the user and group files from the builder
 COPY --from=builder /etc/passwd /etc/passwd
-# copy the static executable
-COPY --from=builder --chown=elf:1000 /go/bin/go-backend /go-backend
+# copy the static executable and config
+COPY config.json ./
+COPY --from=builder /go/bin/go-backend /go-backend
 # use a non-root user
-USER elf
+USER 1000
 # run app
 ENTRYPOINT ["./go-backend"]

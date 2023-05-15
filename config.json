@@ -1,0 +1,21 @@
+{
+  "dev": {
+    "serverAddr": "",
+    "serverPort": 9090,
+    "mongoURI": "",
+    "mongoDatabase": "bpreadings",
+    "mongoCollection": "backend",
+    "enableCredentials": false
+  },
+  "prod": {
+    "serverAddr": "",
+    "serverPort": 0,
+    "mongoURI": "",
+    "mongoDatabase": "",
+    "mongoCollection": "",
+    "enableCredentials": false
+  },
+  "stg": {
+    "url": "http://35.227.250.210/"
+  }
+}

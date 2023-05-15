@@ -1,0 +1,203 @@
+name: Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT: tudublin
+  GKE_ZONE: europe-west1-b
+  GKE_CLUSTER_DEV: gke-stg
+  GKE_CLUSTER_STG: gke-stg
+  IMAGE_NAME: backend
+  IMAGE_TAG: v1.0.${{ github.run_number }}
+  HELM_RELEASE: backend
+  K8S_NAMESPACE: ns-backend
+  K8S_DEPLOYMENT_NAME: backend-deployment
+  K8S_SERVICE_NAME: backend-service
+  K8S_INGRESS: be-ingress
+
+jobs:
+  # -------------- CI Build ---------------
+  build:
+    permissions: write-all
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v3
+        
+      - name: Setting up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+          cache-dependency-path: subdir/go.sum
+      
+      - name: Code Build
+        run: go build -v ./...
+      
+      - name: Unit Test
+        run: go test -v -coverprofile=coverage.out ./...
+
+      - name: Retrieving Sonar Cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      
+      - name: Static Code Analysis with Sonar
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args:
+            -Dsonar.projectKey=go-bp-calc-k8s
+            -Dsonar.organization=hypheni
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.exclusions=**/*main.go,**/handlers.go,**/helpers.go,**/models.go,**/bpreading.go,**/routes.go,**/*_test.go
+
+      - name: Scanning Package Vulnerability with Synk
+        uses: snyk/actions/golang@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=go-scan-snyk.sarif
+                --severity-threshold=high
+      
+      - name: Synk Report Upload to Github Code Scanning
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: go-scan-snyk.sarif
+
+      - name: Creating Container Image
+        run: |
+          docker build . --file Dockerfile --tag $IMAGE_NAME:$IMAGE_TAG
+
+      - name: Scanning Container Image Vulnarability with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Trivy Report Upload to Github Code Scanning
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: GCP Auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: GCP Config
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: latest
+
+      - name: Push to GCR
+        run: |-
+          gcloud auth configure-docker
+          docker tag $IMAGE_NAME:$IMAGE_TAG gcr.io/$GCP_PROJECT/$IMAGE_NAME:$IMAGE_TAG
+          docker push gcr.io/$GCP_PROJECT/$IMAGE_NAME:$IMAGE_TAG
+
+  # -------------- continuous deployment -----------------
+  deploy:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions: write-all
+    steps:
+      ## push to deployment env 
+      - name: Git Checkout
+        uses: actions/checkout@v3
+      
+      - name: GCP Auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: GCP Config
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: latest
+      
+      - name: GCP Update
+        run: |-
+          gcloud components install gke-gcloud-auth-plugin
+          gcloud auth configure-docker
+
+      - name: Deploying to GKE Dev Env [Rolling]
+        if: github.ref != 'refs/heads/main'
+        run: |
+          gcloud container clusters get-credentials $GKE_CLUSTER_DEV --zone $GKE_ZONE --project $GCP_PROJECT
+          helm upgrade $HELM_RELEASE helm/ --install \
+                --set image.tag=$IMAGE_TAG \
+                --namespace $K8S_NAMESPACE --create-namespace \
+                --wait
+          kubectl rollout status deployment/$K8S_DEPLOYMENT_NAME --namespace $K8S_NAMESPACE
+          kubectl get services -o wide --namespace $K8S_NAMESPACE
+
+      - name: Deploying to GKE Staging Env [Blue/Green]
+        if: github.ref == 'refs/heads/main'
+        run: |
+          gcloud container clusters get-credentials $GKE_CLUSTER_STG --zone $GKE_ZONE --project $GCP_PROJECT
+          kubectl delete ingress $K8S_INGRESS --namespace $K8S_NAMESPACE
+          helm install $HELM_RELEASE-green helm/ \
+               --set image.tag=$IMAGE_TAG \
+               --set deploy.name=$K8S_DEPLOYMENT_NAME-green \
+               --set deploy.label.dep=green \
+               --set service.name=$K8S_SERVICE_NAME-green \
+               --namespace $K8S_NAMESPACE-green --create-namespace \
+               --wait
+          kubectl rollout status deployment/$K8S_DEPLOYMENT_NAME-green --namespace $K8S_NAMESPACE-green
+          kubectl get services -o wide --namespace $K8S_NAMESPACE-green
+          sleep 250
+
+    ## QA Testing
+      - name: Retrieve App URL
+        id: geturl
+        run: |
+          echo "BPCALC_URL=$(jq '.stg.url' config.json)" >> $GITHUB_OUTPUT
+
+      - name: Penetration Testing
+        run: |
+          echo 'Hitting url: ${{ steps.geturl.outputs.BPCALC_URL }}'
+          mkdir -p ${{github.workspace}}/reports
+          docker pull owasp/zap2docker-weekly
+          docker run -v /tmp:/zap/wrk/:rw --user root -t owasp/zap2docker-weekly zap-baseline.py -t ${{ steps.geturl.outputs.BPCALC_URL }} -I -r zapreport.html
+          sudo mv /tmp/zapreport.html ${{github.workspace}}/reports/pen-test-report.html
+
+      - name: Uploading QA Test Reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: qa-test-reports
+          path: ${{github.workspace}}/reports/*
+
+      ## Release Generation
+      - name: Retrieve Last Commit Message
+        if: github.ref == 'refs/heads/main'
+        id: getCommitMsg
+        run: |
+          echo "RELEASE_NOTE=$(git show -s --format=%s)" >> $GITHUB_OUTPUT
+
+      - name: Creating Release
+        if: github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ env.IMAGE_TAG }}
+          name: '${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}'
+          body: |
+            **Docker Image**  
+            gcr.io/${{ env.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{env.IMAGE_TAG }} 
+
+            **Changes**  
+            ${{ steps.getCommitMsg.outputs.RELEASE_NOTE }}
