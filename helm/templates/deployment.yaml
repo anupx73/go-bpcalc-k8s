@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: '{{ .Values.container.name }}-deployment'
+  name: {{ .Values.deploy.name }}
 spec:
   selector:
     matchLabels:
-      repo: bpcalc
+      dep: {{ .Values.deploy.label.dep }}
   replicas: 1
   template:
     metadata:
       labels:
-        repo: bpcalc
+        dep: {{ .Values.deploy.label.dep }}
       annotations:
         vault.hashicorp.com/role: 'internal-app'
         vault.hashicorp.com/agent-inject: 'true'

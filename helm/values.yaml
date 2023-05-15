@@ -14,3 +14,8 @@ service:
   ingressName: be-ingress
   staticIP: backend-ip
   port: 80
+
+deploy:
+  name: backend-deployment
+  label:
+    dep: stable
